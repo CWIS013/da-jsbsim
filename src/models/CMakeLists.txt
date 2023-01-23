@@ -43,7 +43,9 @@ set(HEADERS FGAerodynamics.h
             FGBuoyantForces.h
             FGGasCell.h
             FGAccelerations.h
-            FGFCSChannel.h)
+            FGFCSChannel.h
+            DAWallTempEstimation.cpp
+            DAWallTempEstimation.h)
 
 add_library(Models OBJECT ${HEADERS} ${SOURCES})
 set_target_properties(Models PROPERTIES TARGET_DIRECTORY

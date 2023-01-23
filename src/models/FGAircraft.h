@@ -42,6 +42,7 @@ INCLUDES
 
 #include "FGModel.h"
 #include "math/FGMatrix33.h"
+#include "DAWallTempEstimation.h"
 
 /*%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 FORWARD DECLARATIONS
@@ -164,6 +165,8 @@ public:
 
   void SetWingArea(double S) {WingArea = S;}
 
+  double GetLeadingEdgeTemp();
+
   struct Inputs {
     FGColumnVector3 AeroForce;
     FGColumnVector3 PropForce;
@@ -175,6 +178,7 @@ public:
     FGColumnVector3 GroundMoment;
     FGColumnVector3 ExternalMoment;
     FGColumnVector3 BuoyantMoment;
+    double LeadingEdgeTemperature;
   } in;
 
 private:
@@ -189,6 +193,7 @@ private:
   double HTailArea, VTailArea, HTailArm, VTailArm;
   double lbarh,lbarv,vbarh,vbarv;
   std::string AircraftName;
+  DAWallTempEstimation tempEstimator;
 
   void bind(void);
   void unbind(void);

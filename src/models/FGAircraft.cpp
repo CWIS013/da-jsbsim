@@ -49,7 +49,7 @@ namespace JSBSim {
 CLASS IMPLEMENTATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
 
-FGAircraft::FGAircraft(FGFDMExec* fdmex) : FGModel(fdmex)
+FGAircraft::FGAircraft(FGFDMExec* fdmex) : FGModel(fdmex), tempEstimator(DAWallTempEstimation(fdmex))
 {
   Name = "FGAircraft";
   WingSpan = 0.0;
@@ -60,7 +60,6 @@ FGAircraft::FGAircraft(FGFDMExec* fdmex) : FGModel(fdmex)
   lbarh = lbarv = 0.0;
   vbarh = vbarv = 0.0;
   WingIncidence = 0.0;
-
   bind();
 
   Debug(0);
@@ -105,6 +104,8 @@ bool FGAircraft::Run(bool Holding)
   vMoments += in.GroundMoment;
   vMoments += in.ExternalMoment;
   vMoments += in.BuoyantMoment;
+
+  cout<<"Leading Edge Temp: "<< in.LeadingEdgeTemperature - 273.15<<endl;
 
   RunPostFunctions();
 
@@ -166,6 +167,13 @@ bool FGAircraft::Load(Element* el)
   Debug(2);
 
   return true;
+}
+
+
+
+double FGAircraft::GetLeadingEdgeTemp()
+{
+  return tempEstimator.GetWallTempEstimate();
 }
 
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
