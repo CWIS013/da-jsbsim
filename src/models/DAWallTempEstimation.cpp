@@ -11,66 +11,51 @@ namespace JSBSim {
     DAWallTempEstimation::DAWallTempEstimation(FGFDMExec* _fdmex){
       fdmex_ = _fdmex;
       atmosphere_ = fdmex_->GetAtmosphere();
-      aircraft_ = fdmex_->GetAircraft();
     }
 
-    double DAWallTempEstimation::GetWallTempEstimate() {
-      machSpeed_ = fdmex_->GetPropertyValue("velocities/mach");
-      noseDistance_ = aircraft_->Getcbar();
-      if (machSpeed_ < 0.0001) {
-        machSpeed_ = 0.0001;
-      }
-//      cout<<"MACH "<<machSpeed_<<endl;
-      return DAWallTempEstimation::NewtonRaphson(500);
-    }
-
-
-    double DAWallTempEstimation::HeatBalance(double estimate) {
-      double Ta = atmosphere_->GetTemperature()/1.8;
-      double pa = atmosphere_->GetPressure() * 47.880208;
-      double nu = atmosphere_->GetKinematicViscosity();
-      double cp, gm;
-      tie(cp, gm) = CalculateCpAndGamma(estimate);
-      double Pr = atmosphere_->GetAbsoluteViscosity() * cp / (2.64638e-3 * pow(Ta, 1.5) / (Ta + 245 * pow(10, (-12 / Ta))));
-      double sg = 5.67E-8;
-      double w = 0.76;
-      double aa = atmosphere_->GetSoundSpeed()*0.3048;
-      double Va = machSpeed_ * aa;
-
-      double Re = Va * noseDistance_ / nu;
-      double C;
-      double N;
-      double r;
-      double a;
-      double b;
+    double DAWallTempEstimation::GetWallTempEstimateCelsius(double _chord) {
+      chord_m = _chord * 0.3048;
+      machSpeed = fdmex_->GetPropertyValue("velocities/mach");
+      machSpeed = machSpeed < 0.0001 ? 0.0001 : machSpeed;
+      airTemp_K = atmosphere_->GetTemperature() / 1.8;
+      airPressure_Pa = atmosphere_->GetPressure() * 47.880208;
+      kinematicViscosity = atmosphere_->GetKinematicViscosity();
+      absoluteViscosity = atmosphere_->GetAbsoluteViscosity();
+      soundSpeed_ms = atmosphere_->GetSoundSpeed() * 0.3048;
+      velocity_ms = machSpeed * soundSpeed_ms;
+      reynoldsNumber = velocity_ms * chord_m / kinematicViscosity;
       if (flowType_ == 0) {
         C = 0.664;
         N = 0.5;
-        r = pow(Pr, 0.5);
         a = 0.032;
         b = 0.58;
       }
       else {
         C = 0.0592;
         N = 0.2;
-        r = pow(Pr, (1 / 3));
         a = 0.035;
         b = 0.45;
       }
+      cfi = C / (pow(reynoldsNumber, N));
+      NN = 1 - N * (w + 1);
+      return DAWallTempEstimation::NewtonRaphson(500)  - 273.15 ;
+    }
 
-
-      double Twad = Ta * (1 + 0.5 * r * (gm - 1) * pow(machSpeed_, 2)); //10 degree variance
-      double q = 0.5 * gm * pa * pow(machSpeed_, 2);
-      double cfi = C / (pow(Re, N));
-      double NN = 1 - N * (w + 1);
-      double Tref = 1 + a * pow(machSpeed_, 2) + b * (estimate / Ta - 1);
+    double DAWallTempEstimation::HeatBalance(double estimate) {
+      double cp, gm;
+      tie(cp, gm) = CalculateCpAndGamma(estimate);
+      double Pr = absoluteViscosity * cp / (2.64638e-3 * pow(airTemp_K, 1.5) / (airTemp_K + 245 * pow(10, (-12 / airTemp_K))));
+      double r = flowType_ == 0? pow(Pr, 0.5) : pow(Pr, (1 / 3));
+      double Twad = airTemp_K * (1 + 0.5 * r * (gm - 1) * pow(machSpeed, 2));
+      double q = 0.5 * gm * airPressure_Pa * pow(machSpeed, 2);
+      double Tref = 1 + a * pow(machSpeed, 2) + b * (estimate / airTemp_K - 1);
       double cf = cfi / (pow(Tref, NN));
       double St = 0.5 * cf / pow(Pr, (2 / 3));
-      //cout << St<< " - " << r<< " - " << q<< " - " << Va<< " - " << Twad<< " - " << Ta<< " - " << estimate<<endl;
-      double conducted = St * r * q * Va * (Twad - estimate) / (Twad - Ta);
+
+      double conducted = St * r * q * velocity_ms * (Twad - estimate) / (Twad - airTemp_K);
       double radiated = 0;
-      if (machSpeed_ > 1.4) {
-        radiated = emissivity_ * sg * pow((estimate - Ta), 4);
+      if (machSpeed > 1.4) {
+        radiated = emissivity_ * sg * pow((estimate - airTemp_K), 4);
       }
       double balance = conducted - radiated;
       return balance;
@@ -82,8 +67,7 @@ namespace JSBSim {
               1.173, 1.19, 1.204, 1.216};
       vector<double> cv_arr = {0.716, 0.718, 0.721, 0.726, 0.733, 0.742, 0.753, 0.764, 0.776, 0.788, 0.8, 0.812, 0.834, 0.855, 0.868,
               0.886, 0.903, 0.917, 0.929};
-      double cp;
-      double cv;
+      double cp, cv;
       int i = 0;
       for (int n =0; n< T_arr.size(); n++) {
         if (estimate < T_arr[n]) {
@@ -108,12 +92,11 @@ namespace JSBSim {
       return {cp, gamma};
     }
 
-    double DAWallTempEstimation::NewtonRaphson(double x, double xmin, double xmax) {
-      double tol=1E-2, dx=1E-1, maxiter=30, xs = x, x0, x1, f0, f1, df, fx;
-      for (int i=0; i<maxiter; i++) {
+    double DAWallTempEstimation::NewtonRaphson(double x) {
+      double xs = x, x0, x1, f0, f1, df, fx;
+      for (int i=0; i < maxIterations; i++) {
         x0 = xs - dx;
         x1 = xs + dx;
-
         f0 = HeatBalance(x0);
         f1 = HeatBalance(x1);
         df = f1 - f0;
@@ -127,14 +110,6 @@ namespace JSBSim {
         } else {
           xs = xs - fx / df;
         }
-//        if (xs < xmin) {
-//          xs = xmin;
-//          break;
-//        }
-//        if (xs > xmax) {
-//          xs = xmax;
-//          break;
-//        }
       }
       return xs;
     }
