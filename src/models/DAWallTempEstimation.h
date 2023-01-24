@@ -21,9 +21,9 @@ private:
     FGFDMExec* fdmex_;
     std::shared_ptr<FGAtmosphere> atmosphere_;
 
-    double HeatBalance(double estimate);
-    std::tuple<double, double> CalculateCpAndGamma(double estimate);
-    double NewtonRaphson(double x);
+    double HeatBalance(double estimate) const;
+    std::tuple<double, double> static CalculateCpAndGamma(double estimate);
+    double NewtonRaphson();
 
     double machSpeed;
     double chord_m;
@@ -36,6 +36,7 @@ private:
     double reynoldsNumber;
     double cfi, NN, C, N, a, b;
 
+    double startingGuess=500;
     double tol=1E-2;
     double dx=1E-1;
     double maxIterations=30;
@@ -44,6 +45,10 @@ private:
     double emissivity_ = 0.9; //emissivity anodised aluminum or white paint or black paint
     int flowType_ = 1; //flow type: 0 = laminar, 1 = turbulent
 
+    double KELVIN_TO_CELSIUS_ = -273.15;
+    double FEET_TO_METER_ = 0.3048;
+    double RANKINE_TO_KELVIN_ = 1/1.8;
+    double PSF_TO_PASCAL_ = 47.880208;
 };
 }
 #endif //JSB_STATE_DAWALLTEMPESTIMATION_H
