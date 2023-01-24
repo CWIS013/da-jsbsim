@@ -9,35 +9,41 @@ using namespace std;
 namespace JSBSim {
 
     DAWallTempEstimation::DAWallTempEstimation(FGFDMExec* _fdmex){
-      fdmex = _fdmex;
-      atmosphere = fdmex->GetAtmosphere();
+      fdmex_ = _fdmex;
+      atmosphere_ = fdmex_->GetAtmosphere();
+      aircraft_ = fdmex_->GetAircraft();
     }
 
     double DAWallTempEstimation::GetWallTempEstimate() {
-      machSpeed = 1.8; //fdmex->GetPropertyValue("velocities/mach");
+      machSpeed_ = fdmex_->GetPropertyValue("velocities/mach");
+      noseDistance_ = aircraft_->Getcbar();
+      if (machSpeed_ < 0.0001) {
+        machSpeed_ = 0.0001;
+      }
+//      cout<<"MACH "<<machSpeed_<<endl;
       return DAWallTempEstimation::NewtonRaphson(500);
     }
 
 
     double DAWallTempEstimation::HeatBalance(double estimate) {
-      double Ta = atmosphere->GetTemperature()/1.8;
-      double pa = atmosphere->GetPressure() * 47.880208;
-      double nu = atmosphere->GetKinematicViscosity();
+      double Ta = atmosphere_->GetTemperature()/1.8;
+      double pa = atmosphere_->GetPressure() * 47.880208;
+      double nu = atmosphere_->GetKinematicViscosity();
       double cp, gm;
       tie(cp, gm) = CalculateCpAndGamma(estimate);
-      double Pr = atmosphere->GetAbsoluteViscosity() * cp / CalculateK();
+      double Pr = atmosphere_->GetAbsoluteViscosity() * cp / (2.64638e-3 * pow(Ta, 1.5) / (Ta + 245 * pow(10, (-12 / Ta))));
       double sg = 5.67E-8;
       double w = 0.76;
-      double aa = atmosphere->GetSoundSpeed()*0.3048;
-      double Va = machSpeed * aa;
+      double aa = atmosphere_->GetSoundSpeed()*0.3048;
+      double Va = machSpeed_ * aa;
 
-      double Re = Va * noseDistance / nu;
+      double Re = Va * noseDistance_ / nu;
       double C;
       double N;
       double r;
       double a;
       double b;
-      if (flowType == 0) {
+      if (flowType_ == 0) {
         C = 0.664;
         N = 0.5;
         r = pow(Pr, 0.5);
@@ -53,65 +59,21 @@ namespace JSBSim {
       }
 
 
-      double Twad = Ta * (1 + 0.5 * r * (gm - 1) * pow(machSpeed, 2)); //10 degree variance
-      double q = 0.5 * gm * pa * pow(machSpeed, 2);
+      double Twad = Ta * (1 + 0.5 * r * (gm - 1) * pow(machSpeed_, 2)); //10 degree variance
+      double q = 0.5 * gm * pa * pow(machSpeed_, 2);
       double cfi = C / (pow(Re, N));
       double NN = 1 - N * (w + 1);
-      double Tref = 1 + a * pow(machSpeed, 2) + b * (estimate / Ta - 1);
+      double Tref = 1 + a * pow(machSpeed_, 2) + b * (estimate / Ta - 1);
       double cf = cfi / (pow(Tref, NN));
       double St = 0.5 * cf / pow(Pr, (2 / 3));
-
+      //cout << St<< " - " << r<< " - " << q<< " - " << Va<< " - " << Twad<< " - " << Ta<< " - " << estimate<<endl;
       double conducted = St * r * q * Va * (Twad - estimate) / (Twad - Ta);
       double radiated = 0;
-      if (machSpeed > 1.4) {
-        radiated = emissivity * sg * pow((estimate - Ta), 4);
+      if (machSpeed_ > 1.4) {
+        radiated = emissivity_ * sg * pow((estimate - Ta), 4);
       }
       double balance = conducted - radiated;
       return balance;
-    }
-
-    double DAWallTempEstimation::CalculateK() {
-      double T00 = 288.15;
-      double T11 = 216.65;
-      double T32 = 228.65;
-      double T47 = 270.65;
-      double T61 = 252.65;
-      double T79 = 180.65;
-      double Labda;
-      double Trel;
-      double T0;
-      if (altitude <= 11E3) {
-        Labda = -6.5E-3;
-        Trel = 1 + Labda * altitude / T00;
-        T0 = Trel * T00;
-      } else if (altitude <= 20E3){
-        T0 = T11;
-      } else if (altitude <= 32E3){
-        Labda = 1E-3;
-        Trel = 1 + Labda * (altitude - 20E3) / T11;
-        T0 = Trel * T11;
-      } else if (altitude <= 47E3){
-        Labda = 2.8E-3;
-        Trel = 1 + Labda * (altitude - 32E3) / T32;
-        T0 = Trel * T32;
-      } else if (altitude <= 52E3){
-        T0 = T47;
-      } else if (altitude <= 61E3){
-        Labda = -2E-3;
-        Trel = 1 + Labda * (altitude - 52E3) / T47;
-        T0 = Trel * T47;
-      } else if ( altitude <= 79E3){
-        Labda = -4E-3;
-        Trel = 1 + Labda * (altitude - 61E3) / T61;
-        T0 = Trel * T61;
-      } else if (altitude <= 88.7E3){
-        T0 = T79;
-      } else if (altitude <= 120E3) {
-        T0 = T79;
-      }else {
-        T0 = T79;
-      }
-      return 2.64638e-3 * pow(T0, 1.5) / (T0 + 245 * pow(10, (-12 / T0)));
     }
 
     std::tuple<double, double> DAWallTempEstimation::CalculateCpAndGamma(double estimate) {

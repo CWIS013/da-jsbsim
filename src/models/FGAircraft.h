@@ -151,6 +151,7 @@ public:
   double GetMoments(int idx) const { return vMoments(idx); }
   const FGColumnVector3& GetForces(void) const { return vForces; }
   double GetForces(int idx) const { return vForces(idx); }
+  double GetLeadingEdgeTemp() const {return leadingEdgeTemp;}
   /** Gets the the aero reference point (RP) coordinates.
       @return a vector containing the RP coordinates in the structural frame. */
   const FGColumnVector3& GetXYZrp(void) const { return vXYZrp; }
@@ -165,7 +166,7 @@ public:
 
   void SetWingArea(double S) {WingArea = S;}
 
-  double GetLeadingEdgeTemp();
+  double CalculateLeadingEdgeTemp();
 
   struct Inputs {
     FGColumnVector3 AeroForce;
@@ -192,6 +193,7 @@ private:
   double WingArea, WingSpan, cbar, WingIncidence;
   double HTailArea, VTailArea, HTailArm, VTailArm;
   double lbarh,lbarv,vbarh,vbarv;
+  double leadingEdgeTemp;
   std::string AircraftName;
   DAWallTempEstimation tempEstimator;
 

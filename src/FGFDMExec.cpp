@@ -581,7 +581,7 @@ void FGFDMExec::LoadInputs(unsigned int idx)
     Aircraft->in.GroundMoment  = GroundReactions->GetMoments();
     Aircraft->in.ExternalMoment = ExternalReactions->GetMoments();
     Aircraft->in.BuoyantMoment = BuoyantForces->GetMoments();
-    Aircraft->in.LeadingEdgeTemperature = Aircraft->GetLeadingEdgeTemp();
+    Aircraft->in.LeadingEdgeTemperature = Aircraft->CalculateLeadingEdgeTemp();
     break;
   case eAccelerations:
     Accelerations->in.J        = MassBalance->GetJ();
