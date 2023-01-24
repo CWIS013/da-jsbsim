@@ -4,7 +4,6 @@
 #include "FGFDMExec.h"
 #include "DAWallTempEstimation.h"
 
-using namespace std;
 
 namespace JSBSim {
 
@@ -14,14 +13,14 @@ namespace JSBSim {
     }
 
     double DAWallTempEstimation::GetWallTempEstimateCelsius(double _chord) {
-      chord_m = _chord * 0.3048;
+      chord_m = _chord * FEET_TO_METER_;
       machSpeed = fdmex_->GetPropertyValue("velocities/mach");
       machSpeed = machSpeed < 0.0001 ? 0.0001 : machSpeed;
-      airTemp_K = atmosphere_->GetTemperature() / 1.8;
-      airPressure_Pa = atmosphere_->GetPressure() * 47.880208;
+      airTemp_K = atmosphere_->GetTemperature() * RANKINE_TO_KELVIN_;
+      airPressure_Pa = atmosphere_->GetPressure() * PSF_TO_PASCAL_;
       kinematicViscosity = atmosphere_->GetKinematicViscosity();
       absoluteViscosity = atmosphere_->GetAbsoluteViscosity();
-      soundSpeed_ms = atmosphere_->GetSoundSpeed() * 0.3048;
+      soundSpeed_ms = atmosphere_->GetSoundSpeed() * FEET_TO_METER_;
       velocity_ms = machSpeed * soundSpeed_ms;
       reynoldsNumber = velocity_ms * chord_m / kinematicViscosity;
       if (flowType_ == 0) {
@@ -38,26 +37,27 @@ namespace JSBSim {
       }
       cfi = C / (pow(reynoldsNumber, N));
       NN = 1 - N * (w + 1);
-      return DAWallTempEstimation::NewtonRaphson(500)  - 273.15 ;
+      return DAWallTempEstimation::NewtonRaphson() + KELVIN_TO_CELSIUS_;
     }
 
-    double DAWallTempEstimation::HeatBalance(double estimate) {
-      double cp, gm;
-      tie(cp, gm) = CalculateCpAndGamma(estimate);
-      double Pr = absoluteViscosity * cp / (2.64638e-3 * pow(airTemp_K, 1.5) / (airTemp_K + 245 * pow(10, (-12 / airTemp_K))));
-      double r = flowType_ == 0? pow(Pr, 0.5) : pow(Pr, (1 / 3));
-      double Twad = airTemp_K * (1 + 0.5 * r * (gm - 1) * pow(machSpeed, 2));
-      double q = 0.5 * gm * airPressure_Pa * pow(machSpeed, 2);
-      double Tref = 1 + a * pow(machSpeed, 2) + b * (estimate / airTemp_K - 1);
-      double cf = cfi / (pow(Tref, NN));
-      double St = 0.5 * cf / pow(Pr, (2 / 3));
-
-      double conducted = St * r * q * velocity_ms * (Twad - estimate) / (Twad - airTemp_K);
+    double DAWallTempEstimation::HeatBalance(double estimate) const {
+      double cp;
+      double gm;
+      tie(cp, gm) = CalculateCpAndGamma(288.15);
+      double const Tref = 1 + a * pow(machSpeed, 2) + b * (estimate / airTemp_K - 1);
+      double const Pr = absoluteViscosity * cp / (2.64638e-3 * pow(airTemp_K, 1.5) / (airTemp_K + 245 * pow(10, (-12 / airTemp_K))));
+      double const q = 0.5 * gm * airPressure_Pa * pow(machSpeed, 2);
+      double const cf = cfi / (pow(Tref, NN));
+      double const r = flowType_ == 0? pow(Pr, 0.5) : pow(Pr, (1 / 3));
+      double const St = 0.5 * cf / pow(Pr, (2 / 3));
+      double const Twad = airTemp_K * (1 + 0.5 * r * (gm - 1) * pow(machSpeed, 2));
+      double const conducted = St * r * q * velocity_ms * (Twad - estimate) / (Twad - airTemp_K);
       double radiated = 0;
       if (machSpeed > 1.4) {
         radiated = emissivity_ * sg * pow((estimate - airTemp_K), 4);
       }
-      double balance = conducted - radiated;
+      double const balance = conducted - radiated;
+      //cout<<balance<<endl;
       return balance;
     }
 
@@ -67,7 +67,8 @@ namespace JSBSim {
               1.173, 1.19, 1.204, 1.216};
       vector<double> cv_arr = {0.716, 0.718, 0.721, 0.726, 0.733, 0.742, 0.753, 0.764, 0.776, 0.788, 0.8, 0.812, 0.834, 0.855, 0.868,
               0.886, 0.903, 0.917, 0.929};
-      double cp, cv;
+      double cp;
+      double cv;
       int i = 0;
       for (int n =0; n< T_arr.size(); n++) {
         if (estimate < T_arr[n]) {
@@ -82,18 +83,24 @@ namespace JSBSim {
         cp = cp_arr[1];
         cv = cv_arr[1];
       } else {
-        double fraction = (estimate - T_arr[i - 1]) / (T_arr[i] - T_arr[i - 1]);
+        double const fraction = (estimate - T_arr[i - 1]) / (T_arr[i] - T_arr[i - 1]);
         cp = cp_arr[i - 1] + fraction * (cp_arr[i] - cp_arr[i - 1]);
         cv = cv_arr[i - 1] + fraction * (cv_arr[i] - cv_arr[i - 1]);
       }
       cp = 1000 * cp;
       cv = 1000 * cv;
-      double gamma = cp / cv;
+      double const gamma = cp / cv;
       return {cp, gamma};
     }
 
-    double DAWallTempEstimation::NewtonRaphson(double x) {
-      double xs = x, x0, x1, f0, f1, df, fx;
+    double DAWallTempEstimation::NewtonRaphson() {
+      double xs = startingGuess;
+      double x0;
+      double x1;
+      double f0;
+      double f1;
+      double df;
+      double fx;
       for (int i=0; i < maxIterations; i++) {
         x0 = xs - dx;
         x1 = xs + dx;
@@ -110,6 +117,15 @@ namespace JSBSim {
         } else {
           xs = xs - fx / df;
         }
+        if (xs < 10) {
+          xs = 10;
+          break;
+        }
+        if (xs > 1000){
+          xs = 1000;
+          break;
+        }
+        //cout<< x0<< " - " << x1<< " - " << f0<< " - " << f1<< " - " << df<< " - " << fx<< " - " << xs<<endl;
       }
       return xs;
     }
