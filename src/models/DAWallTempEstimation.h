@@ -7,6 +7,7 @@
 
 #include "FGFDMExec.h"
 #include "FGAtmosphere.h"
+#include "FGAircraft.h"
 
 namespace JSBSim {
 
@@ -14,30 +15,23 @@ namespace JSBSim {
 
 class DAWallTempEstimation {
 public:
-    DAWallTempEstimation(JSBSim::FGFDMExec *_fdmex);
+    explicit DAWallTempEstimation(JSBSim::FGFDMExec *_fdmex);
     double GetWallTempEstimate();
 
 private:
-    FGFDMExec* fdmex;
-    std::shared_ptr<FGAtmosphere> atmosphere;
+    FGFDMExec* fdmex_;
+    std::shared_ptr<FGAtmosphere> atmosphere_;
+    std::shared_ptr<FGAircraft> aircraft_;
 
     double HeatBalance(double estimate);
-    double CalculateK();
     std::tuple<double, double> CalculateCpAndGamma(double estimate);
     double NewtonRaphson(double x, double xmin=10, double xmax=1000);
 
-    double Earth_g0 = 9.80665;
-    double Earth_radius = 6378137;
-    double Earth_mu = 398600.44189 * 1e9;
-    double air_R = 8.3145 / 0.0289645;
-
-    double machSpeed;
-    double altitude;
-
-
-    double emissivity = 0.9;
-    double noseDistance = 1.0;
-    int flowType = 1;
+    double machSpeed_;
+    double altitude_;
+    double emissivity_ = 0.9;
+    double noseDistance_;
+    int flowType_ = 1;
 
 };
 }
