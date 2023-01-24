@@ -179,7 +179,6 @@ public:
     FGColumnVector3 GroundMoment;
     FGColumnVector3 ExternalMoment;
     FGColumnVector3 BuoyantMoment;
-    double LeadingEdgeTemperature;
   } in;
 
 private:
