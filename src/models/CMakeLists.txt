@@ -21,7 +21,8 @@ set(SOURCES FGAerodynamics.cpp
             FGExternalForce.cpp
             FGBuoyantForces.cpp
             FGGasCell.cpp
-            FGAccelerations.cpp)
+            FGAccelerations.cpp
+            DAWallTempEstimation.cpp)
 
 set(HEADERS FGAerodynamics.h
             FGAircraft.h
@@ -44,7 +45,6 @@ set(HEADERS FGAerodynamics.h
             FGGasCell.h
             FGAccelerations.h
             FGFCSChannel.h
-            DAWallTempEstimation.cpp
             DAWallTempEstimation.h)
 
 add_library(Models OBJECT ${HEADERS} ${SOURCES})
