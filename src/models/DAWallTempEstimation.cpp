@@ -43,7 +43,7 @@ namespace JSBSim {
     double DAWallTempEstimation::HeatBalance(double estimate) const {
       double cp;
       double gm;
-      tie(cp, gm) = CalculateCpAndGamma(288.15);
+      tie(cp, gm) = CalculateCpAndGamma(airTemp_K);
       double const Tref = 1 + a * pow(machSpeed, 2) + b * (estimate / airTemp_K - 1);
       double const Pr = absoluteViscosity * cp / (2.64638e-3 * pow(airTemp_K, 1.5) / (airTemp_K + 245 * pow(10, (-12 / airTemp_K))));
       double const q = 0.5 * gm * airPressure_Pa * pow(machSpeed, 2);
@@ -69,19 +69,19 @@ namespace JSBSim {
               0.886, 0.903, 0.917, 0.929};
       double cp;
       double cv;
-      int i = 0;
+      int i = -1;
       for (int n =0; n< T_arr.size(); n++) {
         if (estimate < T_arr[n]) {
           i = n;
           break;
         }
       }
-      if (i == 0) {
-        cp = cp_arr[19];
-        cv = cv_arr[19];
-      }else if (i == 1){
-        cp = cp_arr[1];
-        cv = cv_arr[1];
+      if (i == -1) {
+        cp = cp_arr[18];
+        cv = cv_arr[18];
+      }else if (i == 0){
+        cp = cp_arr[0];
+        cv = cv_arr[0];
       } else {
         double const fraction = (estimate - T_arr[i - 1]) / (T_arr[i] - T_arr[i - 1]);
         cp = cp_arr[i - 1] + fraction * (cp_arr[i] - cp_arr[i - 1]);
@@ -125,7 +125,6 @@ namespace JSBSim {
           xs = 1000;
           break;
         }
-        //cout<< x0<< " - " << x1<< " - " << f0<< " - " << f1<< " - " << df<< " - " << fx<< " - " << xs<<endl;
       }
       return xs;
     }
