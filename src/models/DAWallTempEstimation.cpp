@@ -57,7 +57,6 @@ namespace JSBSim {
         radiated = emissivity_ * sg * pow((estimate - airTemp_K), 4);
       }
       double const balance = conducted - radiated;
-      //cout<<balance<<endl;
       return balance;
     }
 
